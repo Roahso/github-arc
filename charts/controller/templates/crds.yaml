@@ -1,0 +1,335 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: runners.actions.summerwind.dev
+spec:
+  group: actions.summerwind.dev
+  names:
+    kind: Runner
+    listKind: RunnerList
+    plural: runners
+    singular: runner
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                repository:
+                  type: string
+                organization:
+                  type: string
+                enterprise:
+                  type: string
+                labels:
+                  type: array
+                  items:
+                    type: string
+                group:
+                  type: string
+                image:
+                  type: string
+                dockerdWithinRunnerContainer:
+                  type: boolean
+                dockerEnabled:
+                  type: boolean
+                dockerMTU:
+                  type: integer
+                dockerMirror:
+                  type: string
+                env:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      value:
+                        type: string
+                resources:
+                  type: object
+                  properties:
+                    requests:
+                      type: object
+                    limits:
+                      type: object
+                volumeMounts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      mountPath:
+                        type: string
+                      readOnly:
+                        type: boolean
+                volumes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      emptyDir:
+                        type: object
+                      hostPath:
+                        type: object
+                        properties:
+                          path:
+                            type: string
+                          type:
+                            type: string
+                      secret:
+                        type: object
+                        properties:
+                          secretName:
+                            type: string
+                      configMap:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                workDir:
+                  type: string
+                serviceAccount:
+                  type: string
+                securityContext:
+                  type: object
+                containerMode:
+                  type: string
+                podTemplate:
+                  type: object
+                  properties:
+                    spec:
+                      type: object
+                      properties:
+                        containers:
+                          type: array
+                          items:
+                            type: object
+                        initContainers:
+                          type: array
+                          items:
+                            type: object
+                        volumes:
+                          type: array
+                          items:
+                            type: object
+                        securityContext:
+                          type: object
+                        nodeSelector:
+                          type: object
+                        tolerations:
+                          type: array
+                          items:
+                            type: object
+                        affinity:
+                          type: object
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                registration:
+                  type: object
+                  properties:
+                    repository:
+                      type: string
+                    labels:
+                      type: array
+                      items:
+                        type: string
+                    token:
+                      type: string
+                    expiresAt:
+                      type: string
+                      format: date-time
+                lastRegistrationUpdateTime:
+                  type: string
+                  format: date-time
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Repository
+          type: string
+          jsonPath: .spec.repository
+        - name: Status
+          type: string
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: runnerdeployments.actions.summerwind.dev
+spec:
+  group: actions.summerwind.dev
+  names:
+    kind: RunnerDeployment
+    listKind: RunnerDeploymentList
+    plural: runnerdeployments
+    singular: runnerdeployment
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                replicas:
+                  type: integer
+                template:
+                  type: object
+                  properties:
+                    spec:
+                      type: object
+                      properties:
+                        repository:
+                          type: string
+                        organization:
+                          type: string
+                        enterprise:
+                          type: string
+                        labels:
+                          type: array
+                          items:
+                            type: string
+                        group:
+                          type: string
+                        image:
+                          type: string
+                        dockerdWithinRunnerContainer:
+                          type: boolean
+                        dockerEnabled:
+                          type: boolean
+                        dockerMTU:
+                          type: integer
+                        dockerMirror:
+                          type: string
+                        env:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                        resources:
+                          type: object
+                          properties:
+                            requests:
+                              type: object
+                            limits:
+                              type: object
+                        volumeMounts:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              mountPath:
+                                type: string
+                              readOnly:
+                                type: boolean
+                        volumes:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              emptyDir:
+                                type: object
+                              hostPath:
+                                type: object
+                                properties:
+                                  path:
+                                    type: string
+                                  type:
+                                    type: string
+                              secret:
+                                type: object
+                                properties:
+                                  secretName:
+                                    type: string
+                              configMap:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                        workDir:
+                          type: string
+                        serviceAccount:
+                          type: string
+                        securityContext:
+                          type: object
+                        containerMode:
+                          type: string
+                        podTemplate:
+                          type: object
+                          properties:
+                            spec:
+                              type: object
+                              properties:
+                                containers:
+                                  type: array
+                                  items:
+                                    type: object
+                                initContainers:
+                                  type: array
+                                  items:
+                                    type: object
+                                volumes:
+                                  type: array
+                                  items:
+                                    type: object
+                                securityContext:
+                                  type: object
+                                nodeSelector:
+                                  type: object
+                                tolerations:
+                                  type: array
+                                  items:
+                                    type: object
+                                affinity:
+                                  type: object
+            status:
+              type: object
+              properties:
+                availableReplicas:
+                  type: integer
+                readyReplicas:
+                  type: integer
+                replicas:
+                  type: integer
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Repository
+          type: string
+          jsonPath: .spec.template.spec.repository
+        - name: Replicas
+          type: string
+          jsonPath: .status.replicas
+        - name: Available
+          type: string
+          jsonPath: .status.availableReplicas
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp 

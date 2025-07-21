@@ -1,0 +1,89 @@
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: {{ include "runner-set.fullname" . }}
+  labels:
+    {{- include "runner-set.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.runnerSet.replicas }}
+  template:
+    spec:
+      {{- if .Values.runnerSet.repository }}
+      repository: {{ .Values.runnerSet.repository }}
+      {{- end }}
+      {{- if .Values.runnerSet.organization }}
+      organization: {{ .Values.runnerSet.organization }}
+      {{- end }}
+      {{- if .Values.runnerSet.enterprise }}
+      enterprise: {{ .Values.runnerSet.enterprise }}
+      {{- end }}
+      {{- if .Values.runnerSet.labels }}
+      labels:
+        {{- toYaml .Values.runnerSet.labels | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.group }}
+      group: {{ .Values.runnerSet.group }}
+      {{- end }}
+      {{- if .Values.runnerSet.image }}
+      image: {{ .Values.runnerSet.image }}
+      {{- end }}
+      {{- if .Values.runnerSet.docker.enabled }}
+      dockerEnabled: {{ .Values.runnerSet.docker.enabled }}
+      {{- end }}
+      {{- if .Values.runnerSet.docker.dockerdWithinRunnerContainer }}
+      dockerdWithinRunnerContainer: {{ .Values.runnerSet.docker.dockerdWithinRunnerContainer }}
+      {{- end }}
+      {{- if .Values.runnerSet.docker.mtu }}
+      dockerMTU: {{ .Values.runnerSet.docker.mtu }}
+      {{- end }}
+      {{- if .Values.runnerSet.docker.mirror }}
+      dockerMirror: {{ .Values.runnerSet.docker.mirror }}
+      {{- end }}
+      {{- if .Values.runnerSet.env }}
+      env:
+        {{- toYaml .Values.runnerSet.env | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.resources }}
+      resources:
+        {{- toYaml .Values.runnerSet.resources | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.volumeMounts }}
+      volumeMounts:
+        {{- toYaml .Values.runnerSet.volumeMounts | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.volumes }}
+      volumes:
+        {{- toYaml .Values.runnerSet.volumes | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.workDir }}
+      workDir: {{ .Values.runnerSet.workDir }}
+      {{- end }}
+      {{- if .Values.runnerSet.serviceAccount.create }}
+      serviceAccount: {{ include "runner-set.serviceAccountName" . }}
+      {{- else if .Values.runnerSet.serviceAccount.name }}
+      serviceAccount: {{ .Values.runnerSet.serviceAccount.name }}
+      {{- end }}
+      {{- if .Values.runnerSet.securityContext }}
+      securityContext:
+        {{- toYaml .Values.runnerSet.securityContext | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.containerSecurityContext }}
+      containerSecurityContext:
+        {{- toYaml .Values.runnerSet.containerSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.runnerSet.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.tolerations }}
+      tolerations:
+        {{- toYaml .Values.runnerSet.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.affinity }}
+      affinity:
+        {{- toYaml .Values.runnerSet.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runnerSet.podTemplate }}
+      podTemplate:
+        {{- toYaml .Values.runnerSet.podTemplate | nindent 8 }}
+      {{- end }} 

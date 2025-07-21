@@ -1,0 +1,128 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "github-runner-controller.fullname" . }}-webhook
+  labels:
+    {{- include "github-runner-controller.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "github-runner-controller.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: webhook
+  template:
+    metadata:
+      labels:
+        {{- include "github-runner-controller.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: webhook
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "github-runner-controller.serviceAccountName" . }}-webhook
+      containers:
+        - name: webhook
+          image: "{{ .Values.webhook.image.repository }}:{{ .Values.webhook.image.tag }}"
+          imagePullPolicy: {{ .Values.webhook.image.pullPolicy }}
+          command:
+            - /manager
+          args:
+            - --metrics-addr=:8080
+            - --enable-leader-election
+            - --leader-election-id=actions-runner-controller-webhook
+            - --webhook-port=9443
+            - --cert-dir=/tmp/certs
+            {{- if .Values.github.appId }}
+            - --github-app-id={{ .Values.github.appId }}
+            {{- end }}
+            {{- if .Values.github.installationId }}
+            - --github-app-installation-id={{ .Values.github.installationId }}
+            {{- end }}
+            {{- if .Values.github.privateKey }}
+            - --github-app-private-key-file=/etc/github-app/private-key.pem
+            {{- end }}
+            {{- if .Values.github.token }}
+            - --github-token={{ .Values.github.token }}
+            {{- end }}
+            {{- if .Values.github.apiUrl }}
+            - --github-api-url={{ .Values.github.apiUrl }}
+            {{- end }}
+            {{- if .Values.logging.level }}
+            - --log-level={{ .Values.logging.level }}
+            {{- end }}
+            {{- with .Values.webhook.args }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: webhook
+              containerPort: 9443
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          {{- with .Values.webhook.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webhook.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.github.privateKey }}
+          volumeMounts:
+            - name: github-app-private-key
+              mountPath: /etc/github-app
+              readOnly: true
+            - name: certs
+              mountPath: /tmp/certs
+              readOnly: false
+          {{- else }}
+          volumeMounts:
+            - name: certs
+              mountPath: /tmp/certs
+              readOnly: false
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      {{- with .Values.webhook.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhook.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhook.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        {{- if .Values.github.privateKey }}
+        - name: github-app-private-key
+          secret:
+            secretName: {{ include "github-runner-controller.fullname" . }}-github-app-private-key
+            items:
+              - key: private-key.pem
+                path: private-key.pem
+                mode: 0400
+        {{- end }}
+        - name: certs
+          emptyDir: {}
+{{- end }} 

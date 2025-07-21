@@ -1,0 +1,82 @@
+# Example configuration for GitHub Actions Runner Controller
+# Copy this file to config/values.yaml and update with your values
+
+# GitHub Configuration
+github:
+  # GitHub App ID (if using GitHub App authentication)
+  appId: ""
+  # GitHub App Installation ID (if using GitHub App authentication)
+  installationId: ""
+  # GitHub App Private Key (if using GitHub App authentication)
+  privateKey: ""
+  # GitHub Personal Access Token (if using PAT authentication)
+  token: "ghp_your_github_token_here"
+  # GitHub API URL (for GitHub Enterprise)
+  apiUrl: "https://api.github.com"
+  # GitHub Webhook Secret
+  webhookSecret: "your_webhook_secret_here"
+
+# Controller Configuration
+controller:
+  # Controller image
+  image:
+    repository: ghcr.io/actions/actions-runner-controller
+    tag: "v0.1.0"
+    pullPolicy: IfNotPresent
+  
+  # Controller resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Controller replica count
+  replicas: 1
+
+# Webhook Configuration
+webhook:
+  enabled: true
+  # Webhook image
+  image:
+    repository: ghcr.io/actions/actions-runner-controller
+    tag: "v0.1.0"
+    pullPolicy: IfNotPresent
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  # Metrics image
+  image:
+    repository: ghcr.io/actions/actions-runner-controller
+    tag: "v0.1.0"
+    pullPolicy: IfNotPresent
+
+# AKS-specific configurations
+aks:
+  # Use Azure CNI
+  useAzureCNI: true
+  # Azure storage class
+  storageClass: "managed-premium"
+  # Azure load balancer annotations
+  loadBalancerAnnotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+    service.beta.kubernetes.io/azure-load-balancer-internal-subnet: ""
+
+# Logging Configuration
+logging:
+  level: info
+  format: json
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  # Prometheus service monitor
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    port: metrics 

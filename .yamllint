@@ -1,0 +1,104 @@
+extends: default
+
+rules:
+  # 80 chars should be enough, but don't fail if a line is longer
+  line-length: disable
+  
+  # Allow inline comments
+  comments-indentation: disable
+  
+  # Allow document start
+  document-start: disable
+  
+  # Allow multiple documents
+  document-end: disable
+  
+  # Allow empty values
+  empty-values: disable
+  
+  # Allow flow style
+  flow-style: disable
+  
+  # Allow literal style
+  literal-style: disable
+  
+  # Allow folded style
+  folded-style: disable
+  
+  # Allow double quoted strings
+  quoted-strings: disable
+  
+  # Allow unquoted strings
+  unquoted-strings: disable
+  
+  # Allow anchors and aliases
+  anchors: disable
+  
+  # Allow merge keys
+  merge: disable
+  
+  # Allow explicit tags
+  explicit-tags: disable
+  
+  # Allow implicit tags
+  implicit-tags: disable
+  
+  # Allow block mapping
+  block-mapping: disable
+  
+  # Allow block sequence
+  block-sequence: disable
+  
+  # Allow flow mapping
+  flow-mapping: disable
+  
+  # Allow flow sequence
+  flow-sequence: disable
+  
+  # Allow indentation
+  indentation: disable
+  
+  # Allow key ordering
+  key-ordering: disable
+  
+  # Allow key duplicates
+  key-duplicates: disable
+  
+  # Allow line endings
+  line-endings: disable
+  
+  # Allow new line at end
+  new-line-at-end-of-file: disable
+  
+  # Allow new lines
+  new-lines: disable
+  
+  # Allow truthy values
+  truthy: disable
+  
+  # Allow hyphens
+  hyphens: disable
+  
+  # Allow commas
+  commas: disable
+  
+  # Allow colons
+  colons: disable
+  
+  # Allow brackets
+  brackets: disable
+  
+  # Allow braces
+  braces: disable
+  
+  # Allow comments
+  comments: disable
+  
+  # Allow document separators
+  document-separator: disable
+  
+  # Allow empty lines
+  empty-lines: disable
+  
+  # Allow maximum line length
+  max-line-length: disable 

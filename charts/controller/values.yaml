@@ -1,0 +1,243 @@
+# Default values for github-runner-controller
+# This is a YAML-formatted file.
+
+# GitHub Configuration
+github:
+  # GitHub App ID (if using GitHub App authentication)
+  appId: ""
+  # GitHub App Installation ID (if using GitHub App authentication)
+  installationId: ""
+  # GitHub App Private Key (if using GitHub App authentication)
+  privateKey: ""
+  # GitHub Personal Access Token (if using PAT authentication)
+  token: ""
+  # GitHub API URL (for GitHub Enterprise)
+  apiUrl: "https://api.github.com"
+  # GitHub Webhook Secret
+  webhookSecret: ""
+
+# Controller Configuration
+controller:
+  # Controller image
+  image:
+    repository: ghcr.io/actions/actions-runner-controller
+    tag: "v0.1.0"
+    pullPolicy: IfNotPresent
+  
+  # Controller resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Controller replica count
+  replicas: 1
+  
+  # Controller service account
+  serviceAccount:
+    create: true
+    name: "github-runner-controller"
+    annotations: {}
+  
+  # Controller RBAC
+  rbac:
+    create: true
+  
+  # Controller security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  # Controller node selector
+  nodeSelector: {}
+  
+  # Controller tolerations
+  tolerations: []
+  
+  # Controller affinity
+  affinity: {}
+  
+  # Controller environment variables
+  env: []
+  
+  # Controller command and args
+  command: []
+  args: []
+
+# Webhook Configuration
+webhook:
+  enabled: true
+  # Webhook image
+  image:
+    repository: ghcr.io/actions/actions-runner-controller
+    tag: "v0.1.0"
+    pullPolicy: IfNotPresent
+  
+  # Webhook resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Webhook service account
+  serviceAccount:
+    create: true
+    name: "github-runner-webhook"
+    annotations: {}
+  
+  # Webhook RBAC
+  rbac:
+    create: true
+  
+  # Webhook security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  # Webhook node selector
+  nodeSelector: {}
+  
+  # Webhook tolerations
+  tolerations: []
+  
+  # Webhook affinity
+  affinity: {}
+  
+  # Webhook environment variables
+  env: []
+  
+  # Webhook command and args
+  command: []
+  args: []
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  # Metrics image
+  image:
+    repository: ghcr.io/actions/actions-runner-controller
+    tag: "v0.1.0"
+    pullPolicy: IfNotPresent
+  
+  # Metrics resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Metrics service account
+  serviceAccount:
+    create: true
+    name: "github-runner-metrics"
+    annotations: {}
+  
+  # Metrics RBAC
+  rbac:
+    create: true
+  
+  # Metrics security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  # Metrics node selector
+  nodeSelector: {}
+  
+  # Metrics tolerations
+  tolerations: []
+  
+  # Metrics affinity
+  affinity: {}
+  
+  # Metrics environment variables
+  env: []
+  
+  # Metrics command and args
+  command: []
+  args: []
+
+# Service Configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Ingress Configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+# Pod Disruption Budget
+pdb:
+  enabled: false
+  minAvailable: 1
+
+# Horizontal Pod Autoscaler
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Security Context
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Container Security Context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# AKS-specific configurations
+aks:
+  # Use Azure CNI
+  useAzureCNI: true
+  # Azure storage class
+  storageClass: "managed-premium"
+  # Azure load balancer annotations
+  loadBalancerAnnotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+    service.beta.kubernetes.io/azure-load-balancer-internal-subnet: ""
+
+# Logging Configuration
+logging:
+  level: info
+  format: json
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  # Prometheus service monitor
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    port: metrics 

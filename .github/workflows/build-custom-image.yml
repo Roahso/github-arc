@@ -1,0 +1,236 @@
+name: Build Custom Runner Image
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'docker/custom-runner/**'
+      - '.github/workflows/build-custom-image.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docker/custom-runner/**'
+      - '.github/workflows/build-custom-image.yml'
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: 'Custom image name'
+        required: false
+        default: 'custom-runner'
+      registry:
+        description: 'Container registry'
+        required: false
+        default: 'acr'
+        type: choice
+        options:
+          - acr
+          - ghcr
+          - dockerhub
+      tag:
+        description: 'Image tag (leave empty for auto-generated)'
+        required: false
+        default: ''
+
+env:
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  validate-dockerfile:
+    name: Validate Dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Dockerfile
+        run: |
+          docker build --dry-run -f docker/custom-runner/Dockerfile docker/custom-runner/
+
+  build-and-push-acr:
+    name: Build and Push to Azure Container Registry
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.registry == 'acr')
+    environment: production
+    needs: validate-dockerfile
+    outputs:
+      image-url: ${{ steps.image-url.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set image URL
+        id: image-url
+        run: |
+          echo "url=${{ secrets.ACR_LOGIN_SERVER }}/${{ github.event.inputs.image_name || 'custom-runner' }}:${{ steps.image-tag.outputs.tag }}" >> $GITHUB_OUTPUT
+
+      - name: Build and push custom runner image
+        run: |
+          docker build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ steps.image-url.outputs.url }} \
+            -f docker/custom-runner/Dockerfile \
+            docker/custom-runner/
+          
+          docker push ${{ steps.image-url.outputs.url }}
+
+      - name: Update custom runners config
+        run: |
+          sed -i "s|image: \".*\"|image: \"${{ steps.image-url.outputs.url }}\"|" config/custom-runners.yaml
+          
+          # Commit and push the updated config
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add config/custom-runners.yaml
+          git commit -m "Update custom runner image to ${{ steps.image-url.outputs.url }}" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
+  build-and-push-ghcr:
+    name: Build and Push to GitHub Container Registry
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.registry == 'ghcr'
+    environment: production
+    needs: validate-dockerfile
+    outputs:
+      image-url: ${{ steps.image-url.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set image URL
+        id: image-url
+        run: |
+          echo "url=ghcr.io/${{ github.repository }}/${{ github.event.inputs.image_name || 'custom-runner' }}:${{ steps.image-tag.outputs.tag }}" >> $GITHUB_OUTPUT
+
+      - name: Build and push custom runner image
+        run: |
+          docker build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ steps.image-url.outputs.url }} \
+            -f docker/custom-runner/Dockerfile \
+            docker/custom-runner/
+          
+          docker push ${{ steps.image-url.outputs.url }}
+
+      - name: Update custom runners config
+        run: |
+          sed -i "s|image: \".*\"|image: \"${{ steps.image-url.outputs.url }}\"|" config/custom-runners.yaml
+          
+          # Commit and push the updated config
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add config/custom-runners.yaml
+          git commit -m "Update custom runner image to ${{ steps.image-url.outputs.url }}" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
+  build-and-push-dockerhub:
+    name: Build and Push to Docker Hub
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.registry == 'dockerhub'
+    environment: production
+    needs: validate-dockerfile
+    outputs:
+      image-url: ${{ steps.image-url.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set image URL
+        id: image-url
+        run: |
+          echo "url=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image_name || 'custom-runner' }}:${{ steps.image-tag.outputs.tag }}" >> $GITHUB_OUTPUT
+
+      - name: Build and push custom runner image
+        run: |
+          docker build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ steps.image-url.outputs.url }} \
+            -f docker/custom-runner/Dockerfile \
+            docker/custom-runner/
+          
+          docker push ${{ steps.image-url.outputs.url }}
+
+      - name: Update custom runners config
+        run: |
+          sed -i "s|image: \".*\"|image: \"${{ steps.image-url.outputs.url }}\"|" config/custom-runners.yaml
+          
+          # Commit and push the updated config
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add config/custom-runners.yaml
+          git commit -m "Update custom runner image to ${{ steps.image-url.outputs.url }}" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
+  notify:
+    name: Notify Build Status
+    runs-on: ubuntu-latest
+    needs: [build-and-push-acr, build-and-push-ghcr, build-and-push-dockerhub]
+    if: always()
+    steps:
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "Custom runner image built and pushed successfully!"
+          echo "Image URL: ${{ needs.build-and-push-acr.outputs.image-url || needs.build-and-push-ghcr.outputs.image-url || needs.build-and-push-dockerhub.outputs.image-url }}"
+          # Add your notification logic here (Slack, Teams, etc.)
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Custom runner image build failed!"
+          # Add your notification logic here (Slack, Teams, etc.) 

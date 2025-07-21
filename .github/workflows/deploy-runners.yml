@@ -1,0 +1,383 @@
+name: Deploy Runner Scale Sets
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'charts/runner-set/**'
+      - 'config/*-runners.yaml'
+      - '.github/workflows/deploy-runners.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'charts/runner-set/**'
+      - 'config/*-runners.yaml'
+      - '.github/workflows/deploy-runners.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      runner_set:
+        description: 'Runner set to deploy'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - custom
+          - all
+      namespace:
+        description: 'Kubernetes namespace'
+        required: false
+        default: 'github-runner-system'
+      values_file:
+        description: 'Values file to use'
+        required: false
+        default: 'config/values.yaml'
+
+env:
+  HELM_VERSION: v3.12.0
+  KUBECTL_VERSION: v1.28.0
+
+jobs:
+  validate:
+    name: Validate Runner Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Validate standard runners chart
+        run: |
+          helm lint charts/runner-set/
+          helm template test charts/runner-set/ -f config/values.yaml.example -f config/standard-runners.yaml
+
+      - name: Validate custom runners chart
+        run: |
+          helm template test charts/runner-set/ -f config/values.yaml.example -f config/custom-runners.yaml
+
+      - name: Validate Kubernetes manifests
+        run: |
+          helm template test charts/runner-set/ -f config/values.yaml.example -f config/standard-runners.yaml | kubectl apply --dry-run=client -f -
+
+  build-custom-image:
+    name: Build Custom Runner Image
+    runs-on: ubuntu-latest
+    if: github.event.inputs.runner_set == 'custom' || github.event.inputs.runner_set == 'all' || contains(github.event.head_commit.modified, 'docker/custom-runner/')
+    outputs:
+      image-tag: ${{ steps.image-tag.outputs.tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          echo "tag=v$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build and push custom runner image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/custom-runner:${{ steps.image-tag.outputs.tag }} ./docker/custom-runner/
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/custom-runner:${{ steps.image-tag.outputs.tag }}
+
+      - name: Update custom runners config
+        run: |
+          sed -i "s|image: \".*\"|image: \"${{ secrets.ACR_LOGIN_SERVER }}/custom-runner:${{ steps.image-tag.outputs.tag }}\"|" config/custom-runners.yaml
+
+  deploy-standard-runners-dev:
+    name: Deploy Standard Runners to Development
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')) && (github.event.inputs.runner_set == 'standard' || github.event.inputs.runner_set == 'all' || github.event.inputs.runner_set == '')
+    environment: development
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+
+      - name: Deploy Standard Runners
+        run: |
+          helm upgrade --install standard-runners ./charts/runner-set \
+            -f config/values.yaml \
+            -f config/standard-runners.yaml \
+            --namespace github-runner-system \
+            --wait \
+            --timeout 10m \
+            --set runnerSet.replicas=2
+
+      - name: Verify deployment
+        run: |
+          kubectl get runnerdeployments -n github-runner-system
+          kubectl get runners -n github-runner-system
+
+  deploy-custom-runners-dev:
+    name: Deploy Custom Runners to Development
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')) && (github.event.inputs.runner_set == 'custom' || github.event.inputs.runner_set == 'all')
+    environment: development
+    needs: [validate, build-custom-image]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+
+      - name: Deploy Custom Runners
+        run: |
+          helm upgrade --install custom-runners ./charts/runner-set \
+            -f config/values.yaml \
+            -f config/custom-runners.yaml \
+            --namespace github-runner-system \
+            --wait \
+            --timeout 10m \
+            --set runnerSet.replicas=1
+
+      - name: Verify deployment
+        run: |
+          kubectl get runnerdeployments -n github-runner-system
+          kubectl get runners -n github-runner-system
+
+  deploy-standard-runners-staging:
+    name: Deploy Standard Runners to Staging
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')) && (github.event.inputs.runner_set == 'standard' || github.event.inputs.runner_set == 'all' || github.event.inputs.runner_set == '')
+    environment: staging
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_STAGING }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_STAGING }} --name ${{ secrets.AKS_CLUSTER_NAME_STAGING }} --overwrite-existing
+
+      - name: Deploy Standard Runners
+        run: |
+          helm upgrade --install standard-runners ./charts/runner-set \
+            -f config/values.yaml \
+            -f config/standard-runners.yaml \
+            --namespace github-runner-system \
+            --wait \
+            --timeout 10m \
+            --set runnerSet.replicas=3
+
+      - name: Verify deployment
+        run: |
+          kubectl get runnerdeployments -n github-runner-system
+          kubectl get runners -n github-runner-system
+
+  deploy-custom-runners-staging:
+    name: Deploy Custom Runners to Staging
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')) && (github.event.inputs.runner_set == 'custom' || github.event.inputs.runner_set == 'all')
+    environment: staging
+    needs: [validate, build-custom-image]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_STAGING }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_STAGING }} --name ${{ secrets.AKS_CLUSTER_NAME_STAGING }} --overwrite-existing
+
+      - name: Deploy Custom Runners
+        run: |
+          helm upgrade --install custom-runners ./charts/runner-set \
+            -f config/values.yaml \
+            -f config/custom-runners.yaml \
+            --namespace github-runner-system \
+            --wait \
+            --timeout 10m \
+            --set runnerSet.replicas=2
+
+      - name: Verify deployment
+        run: |
+          kubectl get runnerdeployments -n github-runner-system
+          kubectl get runners -n github-runner-system
+
+  deploy-standard-runners-prod:
+    name: Deploy Standard Runners to Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod' && (github.event.inputs.runner_set == 'standard' || github.event.inputs.runner_set == 'all')
+    environment: production
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_PROD }} --name ${{ secrets.AKS_CLUSTER_NAME_PROD }} --overwrite-existing
+
+      - name: Deploy Standard Runners
+        run: |
+          helm upgrade --install standard-runners ./charts/runner-set \
+            -f config/values.yaml \
+            -f config/standard-runners.yaml \
+            --namespace github-runner-system \
+            --wait \
+            --timeout 15m \
+            --set runnerSet.replicas=5
+
+      - name: Verify deployment
+        run: |
+          kubectl get runnerdeployments -n github-runner-system
+          kubectl get runners -n github-runner-system
+
+  deploy-custom-runners-prod:
+    name: Deploy Custom Runners to Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod' && (github.event.inputs.runner_set == 'custom' || github.event.inputs.runner_set == 'all')
+    environment: production
+    needs: [validate, build-custom-image]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_PROD }} --name ${{ secrets.AKS_CLUSTER_NAME_PROD }} --overwrite-existing
+
+      - name: Deploy Custom Runners
+        run: |
+          helm upgrade --install custom-runners ./charts/runner-set \
+            -f config/values.yaml \
+            -f config/custom-runners.yaml \
+            --namespace github-runner-system \
+            --wait \
+            --timeout 15m \
+            --set runnerSet.replicas=3
+
+      - name: Verify deployment
+        run: |
+          kubectl get runnerdeployments -n github-runner-system
+          kubectl get runners -n github-runner-system
+
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-standard-runners-dev, deploy-custom-runners-dev, deploy-standard-runners-staging, deploy-custom-runners-staging, deploy-standard-runners-prod, deploy-custom-runners-prod]
+    if: always()
+    steps:
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Runner deployment failed!"
+          # Add your notification logic here (Slack, Teams, etc.) 

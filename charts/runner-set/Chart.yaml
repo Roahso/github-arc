@@ -1,0 +1,18 @@
+apiVersion: v2
+name: runner-set
+description: A Helm chart for GitHub Actions Runner Scale Sets
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - github
+  - actions
+  - runner
+  - scale-set
+  - kubernetes
+home: https://github.com/actions/actions-runner-controller
+sources:
+  - https://github.com/actions/actions-runner-controller
+maintainers:
+  - name: Microsoft GitHub Actions Team
+    email: support@github.com 
