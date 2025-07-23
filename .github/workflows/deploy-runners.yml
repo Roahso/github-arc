@@ -42,18 +42,29 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
+      - name: Prepare values file with secrets for validation
+        run: |
+          # Create a temporary values file with secrets replaced for validation
+          cp config/values.yaml config/values-with-secrets.yaml
+          sed -i "s/\${GITHUB_TOKEN}/dummy-token-for-validation/g" config/values-with-secrets.yaml
+          sed -i "s/\${GITHUB_WEBHOOK_SECRET}/dummy-secret-for-validation/g" config/values-with-secrets.yaml
+
       - name: Validate standard runners chart
         run: |
           helm lint charts/runner-set/
-          helm template test charts/runner-set/ -f config/values.yaml -f config/standard-runners.yaml
+          helm template test charts/runner-set/ -f config/values-with-secrets.yaml -f config/standard-runners.yaml
 
       - name: Validate custom runners chart
         run: |
-          helm template test charts/runner-set/ -f config/values.yaml -f config/custom-runners.yaml
+          helm template test charts/runner-set/ -f config/values-with-secrets.yaml -f config/custom-runners.yaml
 
       - name: Validate Kubernetes manifests
         run: |
-          helm template test charts/runner-set/ -f config/values.yaml -f config/standard-runners.yaml | kubectl apply --dry-run=client -f -
+          helm template test charts/runner-set/ -f config/values-with-secrets.yaml -f config/standard-runners.yaml | kubectl apply --dry-run=client -f -
+
+      - name: Clean up temporary files
+        run: |
+          rm -f config/values-with-secrets.yaml
 
   build-custom-image:
     name: Build Custom Runner Image
@@ -123,14 +134,25 @@ jobs:
         run: |
           az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
 
+      - name: Prepare values file with secrets
+        run: |
+          # Create a temporary values file with secrets replaced
+          cp config/values.yaml config/values-with-secrets.yaml
+          sed -i "s/\${GITHUB_TOKEN}/${{ secrets.GITHUB_TOKEN }}/g" config/values-with-secrets.yaml
+          sed -i "s/\${GITHUB_WEBHOOK_SECRET}/${{ secrets.GITHUB_WEBHOOK_SECRET }}/g" config/values-with-secrets.yaml
+
       - name: Deploy Standard Runners
         run: |
           helm upgrade --install standard-runners ./charts/runner-set \
-            -f config/values.yaml \
+            -f config/values-with-secrets.yaml \
             -f config/standard-runners.yaml \
             --namespace github-runner-system \
             --wait \
             --timeout 10m
+
+      - name: Clean up temporary files
+        run: |
+          rm -f config/values-with-secrets.yaml
 
       - name: Verify deployment
         run: |
@@ -167,14 +189,25 @@ jobs:
         run: |
           az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
 
+      - name: Prepare values file with secrets
+        run: |
+          # Create a temporary values file with secrets replaced
+          cp config/values.yaml config/values-with-secrets.yaml
+          sed -i "s/\${GITHUB_TOKEN}/${{ secrets.GITHUB_TOKEN }}/g" config/values-with-secrets.yaml
+          sed -i "s/\${GITHUB_WEBHOOK_SECRET}/${{ secrets.GITHUB_WEBHOOK_SECRET }}/g" config/values-with-secrets.yaml
+
       - name: Deploy Custom Runners
         run: |
           helm upgrade --install custom-runners ./charts/runner-set \
-            -f config/values.yaml \
+            -f config/values-with-secrets.yaml \
             -f config/custom-runners.yaml \
             --namespace github-runner-system \
             --wait \
             --timeout 10m
+
+      - name: Clean up temporary files
+        run: |
+          rm -f config/values-with-secrets.yaml
 
       - name: Verify deployment
         run: |

@@ -86,12 +86,32 @@ deploy_controller() {
         exit 1
     fi
     
+    # Check for required environment variables
+    if [ -z "$GITHUB_TOKEN" ]; then
+        print_error "GITHUB_TOKEN environment variable is required"
+        exit 1
+    fi
+    
+    if [ -z "$GITHUB_WEBHOOK_SECRET" ]; then
+        print_error "GITHUB_WEBHOOK_SECRET environment variable is required"
+        exit 1
+    fi
+    
+    # Create temporary values file with secrets replaced
+    local temp_values_file=$(mktemp)
+    cp "$values_file" "$temp_values_file"
+    sed -i "s/\${GITHUB_TOKEN}/$GITHUB_TOKEN/g" "$temp_values_file"
+    sed -i "s/\${GITHUB_WEBHOOK_SECRET}/$GITHUB_WEBHOOK_SECRET/g" "$temp_values_file"
+    
     helm upgrade --install github-runner-controller ./charts/controller \
-        -f "$values_file" \
+        -f "$temp_values_file" \
         --namespace "$namespace" \
         --create-namespace \
         --wait \
         --timeout 10m
+    
+    # Clean up temporary file
+    rm -f "$temp_values_file"
     
     print_success "GitHub Actions Runner Controller deployed successfully."
 }
@@ -115,12 +135,32 @@ deploy_runner_set() {
         exit 1
     fi
     
+    # Check for required environment variables
+    if [ -z "$GITHUB_TOKEN" ]; then
+        print_error "GITHUB_TOKEN environment variable is required"
+        exit 1
+    fi
+    
+    if [ -z "$GITHUB_WEBHOOK_SECRET" ]; then
+        print_error "GITHUB_WEBHOOK_SECRET environment variable is required"
+        exit 1
+    fi
+    
+    # Create temporary values file with secrets replaced
+    local temp_values_file=$(mktemp)
+    cp "$values_file" "$temp_values_file"
+    sed -i "s/\${GITHUB_TOKEN}/$GITHUB_TOKEN/g" "$temp_values_file"
+    sed -i "s/\${GITHUB_WEBHOOK_SECRET}/$GITHUB_WEBHOOK_SECRET/g" "$temp_values_file"
+    
     helm upgrade --install "$release_name" ./charts/runner-set \
-        -f "$values_file" \
+        -f "$temp_values_file" \
         -f "$runner_config" \
         --namespace "$namespace" \
         --wait \
         --timeout 10m
+    
+    # Clean up temporary file
+    rm -f "$temp_values_file"
     
     print_success "Runner set $release_name deployed successfully."
 }

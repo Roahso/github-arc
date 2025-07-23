@@ -49,7 +49,9 @@ The GitHub Actions Runner Controller allows you to automatically scale GitHub Ac
 
 2. **Configure your environment**:
    ```bash
-   # Edit config/values.yaml with your GitHub token and repository details
+   # Edit config/values.yaml with your configuration
+   # Note: GitHub token and webhook secret are handled via environment variables
+   # Set GITHUB_TOKEN and GITHUB_WEBHOOK_SECRET environment variables before deployment
    ```
 
 3. **Deploy the controller**:
@@ -85,6 +87,8 @@ The GitHub Actions Runner Controller allows you to automatically scale GitHub Ac
    - `AKS_RESOURCE_GROUP`: AKS resource group name
    - `AKS_CLUSTER_NAME`: AKS cluster name
    - `ACR_NAME`: Azure Container Registry name (without .azurecr.io)
+   - `GITHUB_TOKEN`: GitHub Personal Access Token with `repo` and `admin:org` scopes
+   - `GITHUB_WEBHOOK_SECRET`: GitHub webhook secret for secure webhook communication
 
 2. **Deploy using workflows**:
    - Go to Actions tab
