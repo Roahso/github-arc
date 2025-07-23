@@ -82,7 +82,7 @@ deploy_controller() {
     
     if [ ! -f "$values_file" ]; then
         print_error "Values file not found: $values_file"
-        print_error "Please copy config/values.yaml.example to config/values.yaml and update it with your configuration."
+        print_error "Please update config/values.yaml with your configuration."
         exit 1
     fi
     

@@ -48,7 +48,6 @@ The GitHub Actions Runner Controller allows you to automatically scale GitHub Ac
 
 2. **Configure your environment**:
    ```bash
-   cp config/values.yaml.example config/values.yaml
    # Edit config/values.yaml with your GitHub token and repository details
    ```
 
@@ -79,16 +78,14 @@ The GitHub Actions Runner Controller allows you to automatically scale GitHub Ac
 ### Option 2: Automated Deployment with GitHub Actions
 
 1. **Set up required secrets** in your GitHub repository:
-   - Azure credentials for each environment
-   - Container registry credentials
-   - GitHub tokens
+   - `AZURE_CREDENTIALS`: Azure service principal credentials
+   - `AKS_RESOURCE_GROUP`: AKS resource group name
+   - `AKS_CLUSTER_NAME`: AKS cluster name
+   - `ACR_LOGIN_SERVER`: Azure Container Registry login server
+   - `ACR_USERNAME`: ACR username
+   - `ACR_PASSWORD`: ACR password
 
-2. **Configure environments** in GitHub repository settings:
-   - `development`
-   - `staging` 
-   - `production`
-
-3. **Deploy using workflows**:
+2. **Deploy using workflows**:
    - Go to Actions tab
    - Run "Deploy GitHub Actions Runner Controller" workflow
    - Run "Deploy Runner Scale Sets" workflow
