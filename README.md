@@ -35,6 +35,7 @@ The GitHub Actions Runner Controller allows you to automatically scale GitHub Ac
 - Helm 3.x
 - AKS cluster with appropriate permissions
 - GitHub Personal Access Token with `repo` and `admin:org` scopes
+- Azure managed identity with appropriate permissions for AKS and ACR access
 
 ## Quick Start
 
@@ -78,12 +79,12 @@ The GitHub Actions Runner Controller allows you to automatically scale GitHub Ac
 ### Option 2: Automated Deployment with GitHub Actions
 
 1. **Set up required secrets** in your GitHub repository:
-   - `AZURE_CREDENTIALS`: Azure service principal credentials
+   - `AZURE_CLIENT_ID`: Azure managed identity client ID
+   - `AZURE_TENANT_ID`: Azure tenant ID
+   - `AZURE_SUBSCRIPTION_ID`: Azure subscription ID
    - `AKS_RESOURCE_GROUP`: AKS resource group name
    - `AKS_CLUSTER_NAME`: AKS cluster name
-   - `ACR_LOGIN_SERVER`: Azure Container Registry login server
-   - `ACR_USERNAME`: ACR username
-   - `ACR_PASSWORD`: ACR password
+   - `ACR_NAME`: Azure Container Registry name (without .azurecr.io)
 
 2. **Deploy using workflows**:
    - Go to Actions tab
@@ -91,6 +92,31 @@ The GitHub Actions Runner Controller allows you to automatically scale GitHub Ac
    - Run "Deploy Runner Scale Sets" workflow
 
 For detailed CI/CD setup instructions, see [CI/CD Setup Guide](docs/CI_CD_SETUP.md).
+
+### Setting Up Azure Managed Identity
+
+To use managed identity authentication:
+
+1. **Create a managed identity** (if not already exists):
+   ```bash
+   az identity create --name github-runner-identity --resource-group your-resource-group
+   ```
+
+2. **Assign permissions to the managed identity**:
+   ```bash
+   # Get the managed identity client ID
+   CLIENT_ID=$(az identity show --name github-runner-identity --resource-group your-resource-group --query clientId -o tsv)
+   
+   # Assign AKS permissions
+   az role assignment create --assignee $CLIENT_ID --role "Azure Kubernetes Service Cluster Admin Role" --scope /subscriptions/your-subscription-id/resourceGroups/your-aks-resource-group/providers/Microsoft.ContainerService/managedClusters/your-aks-cluster
+   
+   # Assign ACR permissions
+   az role assignment create --assignee $CLIENT_ID --role "AcrPush" --scope /subscriptions/your-subscription-id/resourceGroups/your-acr-resource-group/providers/Microsoft.ContainerRegistry/registries/your-acr-name
+   ```
+
+3. **Configure GitHub Actions runner** to use the managed identity:
+   - Ensure your GitHub Actions runner VM has the managed identity assigned
+   - The workflows will automatically use the managed identity for authentication
 
 ## Configuration
 
